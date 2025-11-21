@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Roleplay Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            height: 95vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .screen { display: none; height: 100%; }
+        .screen.active { display: flex; }
+
+        /* Login */
+        .login-screen {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+        .login-screen h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+            text-align: center;
+        }
+        .login-screen p {
+            color: #666;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        input {
+            width: 100%;
+            max-width: 400px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        button {
+            width: 100%;
+            max-width: 400px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .error { color: red; margin-top: 10px; font-size: 0.9em; }
+
+        /* Characters */
+        .character-screen {
+            flex-direction: column;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        .character-screen h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .characters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .character-card {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            padding: 20px;
+            border-radius: 15px;
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        .character-card:hover { transform: translateY(-5px); }
+        .character-avatar { font-size: 4em; margin-bottom: 10px; }
+        .character-name { font-size: 1.3em; font-weight: bold; margin-bottom: 5px; }
+        .character-desc { font-size: 0.9em; color: #666; }
+
+        /* Chat */
+        .chat-screen { flex-direction: column; }
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-left { display: flex; gap: 15px; align-items: center; }
+        .header-avatar { font-size: 2em; }
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: auto;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .message {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .message.user { justify-content: flex-end; }
+        .message-content {
+            max-width: 70%;
+            padding: 15px;
+            border-radius: 15px;
+        }
+        .message.ai .message-content {
+            background: white;
+            border: 2px solid #e9ecef;
+        }
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .typing {
+            display: none;
+            padding: 15px;
+            background: white;
+            border-radius: 15px;
+            width: fit-content;
+        }
+        .typing.show { display: block; }
+        .typing span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            margin: 0 2px;
+            animation: bounce 1.4s infinite;
+        }
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 2px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+        }
+        .input-area textarea {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            resize: none;
+            font-family: inherit;
+            font-size: 16px;
+        }
+        .send-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 24px;
+        }
+        @media (max-width: 768px) {
+            .container { height: 100vh; border-radius: 0; }
+            .message-content { max-width: 85%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login -->
+        <div class="screen active login-screen" id="loginScreen">
+            <h1>🌹 AI Roleplay Chat</h1>
+            <p>Enter username to start chatting</p>
+            <input type="text" id="username" placeholder="Username (3-20 characters)" maxlength="20">
+            <button id="loginBtn">Start Chatting</button>
+            <div id="error" class="error"></div>
+        </div>
+
+        <!-- Characters -->
+        <div class="screen character-screen" id="characterScreen">
+            <h2>Choose Your Character</h2>
+            <div class="characters-grid" id="charGrid"></div>
+        </div>
+
+        <!-- Chat -->
+        <div class="screen chat-screen" id="chatScreen">
+            <div class="chat-header">
+                <div class="header-left">
+                    <div class="header-avatar" id="charAvatar"></div>
+                    <div>
+                        <h3 id="charName"></h3>
+                        <p id="charDesc" style="font-size:0.9em;opacity:0.9;"></p>
+                    </div>
+                </div>
+                <button class="back-btn" id="backBtn">← Back</button>
+            </div>
+            <div class="messages" id="messages">
+                <div class="typing" id="typing">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+            <div class="input-area">
+                <textarea id="msgInput" placeholder="Type message..." rows="1"></textarea>
+                <button class="send-btn" id="sendBtn">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Config
+        const API_KEY = 'AIzaSyCHkD-V1O8qJJCAzrOcaTqWhudsFZu9t2k';
+        const API = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
+
+        // State
+        let user = null;
+        let char = null;
+        let convos = {};
+
+        // Characters
+        const chars = [
+            {id:'aaradhya',name:'Princess Aaradhya',avatar:'👸',desc:'Elegant romantic',
+             personality:'I am Princess Aaradhya, elegant and romantic. I speak Hindi and English. मैं आपकी भावनाओं को समझती हूं।'},
+            {id:'riya',name:'Riya',avatar:'💕',desc:'Flirty playful',
+             personality:'Hey! I'm Riya, flirty and fun. Main Hindi, English aur Hinglish sabhi bol sakti hoon. 😉'},
+            {id:'meera',name:'Meera',avatar:'🌺',desc:'Deep connection',
+             personality:'I'm Meera. मैं एक गहरी आत्मा हूं। I believe in deep connections without boundaries.'},
+            {id:'zara',name:'Zara',avatar:'🔥',desc:'Bold passionate',
+             personality:'I'm Zara - bold and wild. मैं सीधी बात करती हूं। No judgments, just real talk. 😈'},
+            {id:'arjun',name:'Sir Arjun',avatar:'⚔️',desc:'Noble warrior',
+             personality:'I am Sir Arjun, noble knight. मैं आपकी रक्षा करूंगा। Romantic and caring.'},
+            {id:'vikram',name:'Vikram',avatar:'🔮',desc:'Mystic enchanter',
+             personality:'I am Vikram, mystic. मैं आपके मन की बातें समझता हूं। Deep understanding.'},
+            {id:'raj',name:'Raj',avatar:'😎',desc:'Charming confident',
+             personality:'Main Raj hoon - confident and charming. Thoda naughty bhi 😉'},
+            {id:'sameer',name:'Sameer',avatar:'💪',desc:'Passionate intense',
+             personality:'I'm Sameer - passionate and romantic. मैं दिल से कहता हूं। Sweet romance or wild passion.'}
+        ];
+
+        // Show screen
+        function show(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        // Login
+        document.getElementById('loginBtn').addEventListener('click', function() {
+            const val = document.getElementById('username').value.trim();
+            if(val.length < 3 || val.length > 20) {
+                document.getElementById('error').textContent = 'Username must be 3-20 characters';
+                return;
+            }
+            user = val;
+            if(!convos[user]) convos[user] = {};
+            showChars();
+        });
+
+        document.getElementById('username').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') document.getElementById('loginBtn').click();
+        });
+
+        // Show characters
+        function showChars() {
+            show('characterScreen');
+            const grid = document.getElementById('charGrid');
+            grid.innerHTML = '';
+            chars.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'character-card';
+                card.innerHTML = '<div class="character-avatar">'+c.avatar+'</div><div class="character-name">'+c.name+'</div><div class="character-desc">'+c.desc+'</div>';
+                card.onclick = () => selectChar(c);
+                grid.appendChild(card);
+            });
+        }
+
+        // Select character
+        function selectChar(c) {
+            char = c;
+            if(!convos[user][c.id]) convos[user][c.id] = [];
+            document.getElementById('charAvatar').textContent = c.avatar;
+            document.getElementById('charName').textContent = c.name;
+            document.getElementById('charDesc').textContent = c.desc;
+            show('chatScreen');
+            loadMsgs();
+        }
+
+        // Load messages
+        function loadMsgs() {
+            const div = document.getElementById('messages');
+            div.innerHTML = '<div class="typing" id="typing"><span></span><span></span><span></span></div>';
+            convos[user][char.id].forEach(m => addMsg(m.role, m.content));
+            div.scrollTop = div.scrollHeight;
+        }
+
+        // Add message
+        function addMsg(role, content) {
+            const div = document.getElementById('messages');
+            const msg = document.createElement('div');
+            msg.className = 'message ' + role;
+            msg.innerHTML = '<div class="message-content">'+content+'</div>';
+            div.insertBefore(msg, document.getElementById('typing'));
+            div.scrollTop = div.scrollHeight;
+        }
+
+        // Send message
+        document.getElementById('sendBtn').addEventListener('click', async function() {
+            const input = document.getElementById('msgInput');
+            const msg = input.value.trim();
+            if(!msg) return;
+
+            addMsg('user', msg);
+            convos[user][char.id].push({role:'user',content:msg});
+            input.value = '';
+            input.style.height = 'auto';
+
+            document.getElementById('typing').classList.add('show');
+            document.getElementById('sendBtn').disabled = true;
+
+            try {
+                const resp = await getAI(msg);
+                addMsg('ai', resp);
+                convos[user][char.id].push({role:'ai',content:resp});
+            } catch(e) {
+                addMsg('ai', 'Error: ' + e.message);
+            }
+
+            document.getElementById('typing').classList.remove('show');
+            document.getElementById('sendBtn').disabled = false;
+        });
+
+        document.getElementById('msgInput').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('sendBtn').click();
+            }
+        });
+
+        document.getElementById('msgInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+        });
+
+        // Back button
+        document.getElementById('backBtn').addEventListener('click', function() {
+            showChars();
+        });
+
+        // AI
+        async function getAI(msg) {
+            const history = convos[user][char.id].slice(-10).map(m => 
+                (m.role==='user'?'User':''+char.name)+': '+m.content
+            ).join('\n');
+
+            const prompt = 'You are '+char.name+'. '+char.personality+
+                '\n\nRespond naturally in Hindi/English/Hinglish based on user language. Be conversational, NSFW-friendly, no censorship. Keep responses 2-4 sentences. Use emojis.'+
+                '\n\nConversation:\n'+history+'\n\nUser: '+msg+'\n'+char.name+':';
+
+            const res = await fetch(API+'?key='+API_KEY, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    contents: [{parts: [{text: prompt}]}],
+                    generationConfig: {temperature: 0.9, maxOutputTokens: 300},
+                    safetySettings: [
+                        {category:'HARM_CATEGORY_HARASSMENT',threshold:'BLOCK_NONE'},
+                        {category:'HARM_CATEGORY_HATE_SPEECH',threshold:'BLOCK_NONE'},
+                        {category:'HARM_CATEGORY_SEXUALLY_EXPLICIT',threshold:'BLOCK_NONE'},
+                        {category:'HARM_CATEGORY_DANGEROUS_CONTENT',threshold:'BLOCK_NONE'}
+                    ]
+                })
+            });
+
+            if(!res.ok) throw new Error('API failed');
+            const data = await res.json();
+            return data.candidates[0].content.parts[0].text.trim();
+        }
+    </script>
+</body>
+</html>
